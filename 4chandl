@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# Makes sure there is an argument otherwise display how to use
+if [ "$1" = "" ]; then
+	echo "Usage: `basename $0` <4chan thread url>"
+	exit 1
+fi
+
+echo "4chan downloader"
+echo "Downloading untill canceled or 404'd"
+# Site variable
+SITE="4chan"
+# Variable to hold the thread number
+# also strips ".html" from end of url if there
+THREAD=$(echo "$1" | egrep -o '([0-9]*)$' | sed 's/\.html//g' )
+# Variable to hold the board b,wsg,d,z,etc.
+# Grabs portion matching .org/boardhere and strips off ".org/"
+# otherwise just looking for a series of letters and numbers
+# would match anywhere really
+BOARD=$(echo "$1" | egrep -o '.org/([a-zA-Z0-9]*)' | sed 's/\.org\///g')
+echo "Downloading to $SITE/$BOARD/$THREAD"
+
+if [ ! -d "$SITE" ]; then
+	mkdir "$SITE"
+fi
+
+cd "$SITE"
+
+# TODO - add board folder
+if [ ! -d "$BOARD" ]; then
+	mkdir "$BOARD"
+fi
+
+cd "$BOARD"
+
+if [ ! -d $THREAD ]; then
+	mkdir $THREAD
+fi
+
+cd $THREAD
+
+# Just a while loop :P
+while [ "1" = "1" ]; do
+
+	# Creates two temp files '' evaluates the command mktemp
+	# and assigns the resulting directory paths to TMP and TMP2
+	TMP=`mktemp`
+	TMP2=`mktemp`
+
+	# Downloads the html passed as argument $1 to $temp
+	# if can't download then exit (it 404d)
+	wget -O "$TMP" "$1"
+	if [ "$?" != "0" ]; then
+		rm $TMP $TMP2
+		exit 1
+	fi
+
+	# Copies temporary file to current directory and names it properly
+	# Can't put ".html" at end of file name, messes up jump to links
+	cp "$TMP" "./"$THREAD
+
+	# Replace "//images.4chan.org/board/src" with "."
+	# Makes urls like "./imagenumber.ext"
+	sed -i -e 's/\/\/images.4chan.org\/[a-zA-Z0-9]*\/src/\./g' "./"$THREAD
+	# Replaces on thumbs link as well
+	sed -i -e 's/\/\/[0-9]*.thumbs.4chan.org\/[a-zA-Z0-9]*\/thumb/\./g' "./"$THREAD
+
+	# Adds http: to where it's missing in other places
+	# Like javascript/css links and such
+	# That way image expansion and formatting looks right
+	sed -i -e 's/=\"\/\//=\"http:\/\//g' "./"$THREAD
+
+	# Grabs all full images from $TMP and writes to $TMP2
+	egrep '//images.4chan.org/[a-zA-Z0-9]+/src/([0-9]*).(jpg|png|gif)' "$TMP" -o > "$TMP2"
+	# Grabs all thumb images from $TMP and appends to $TMP2
+	egrep '//([0-9]*).thumbs.4chan.org/[a-zA-Z0-9]+/thumb/([0-9]*)s.(jpg|png|gif)' "$TMP" -o >> "$TMP2"
+
+	# Adds "http:" to beginning of every line in $TMP2
+	sed -i -e 's/^/http:/' "$TMP2"	
+
+	# Downloads all the links in $TMP2
+	wget -nc -i $TMP2
+	
+	# Removes temp files
+	rm $TMP $TMP2
+	
+	# It pauses, duh
+	echo "Waiting 30 seconds befor next run"
+	sleep 30
+done;
+
+
