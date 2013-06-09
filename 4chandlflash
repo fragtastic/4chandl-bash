@@ -1,0 +1,57 @@
+#!/bin/sh
+
+echo "4chan flash  downloader"
+echo "Downloading untill canceled"
+# Site variable
+SITE="4chan"
+BOARD="flash"
+echo "Downloading to $SITE/$BOARD/"
+
+URL="http://boards.4chan.org/f/"
+
+if [ ! -d "$SITE" ]; then
+	mkdir "$SITE"
+fi
+
+cd "$SITE"
+
+if [ ! -d "$BOARD" ]; then
+	mkdir "$BOARD"
+fi
+
+cd "$BOARD"
+
+# Just a while loop :P
+while [ "1" = "1" ]; do
+
+	# Creates two temp files '' evaluates the command mktemp
+	# and assigns the resulting directory paths to TMP and TMP2
+	TMP=`mktemp`
+	TMP2=`mktemp`
+
+	# Downloads the html passed as argument $1 to $temp
+	# if can't download then exit (it 404d)
+	wget -O "$TMP" "$URL"
+	if [ "$?" != "0" ]; then
+		rm $TMP $TMP2
+		exit 1
+	fi
+
+	# Grabs all full images from $TMP and writes to $TMP2
+	egrep '//images.4channel.org/f/src/(.{0,50}).swf' "$TMP" -o > "$TMP2"
+
+	# Adds "http:" to urls in $TMP2
+	sed -i -e 's/^/http:/' "$TMP2"
+
+	# Downloads all the links in $TMP2
+	wget -nc -i $TMP2
+	
+	# Removes temp files
+	rm $TMP $TMP2
+	
+	# It pauses, duh
+	echo "Waiting 30 seconds befor next run"
+	sleep 30
+done;
+
+
