@@ -50,8 +50,8 @@ while [ "1" = "1" ]; do
 	rm $TMP $TMP2
 	
 	# It pauses, duh
-	echo "Waiting 30 seconds befor next run"
-	sleep 30
+	echo "Waiting 120 seconds befor next run"
+	sleep 120
 done;
 
 
